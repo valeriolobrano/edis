@@ -135,19 +135,25 @@ try:
 
     st.success("✅ Previsione completata con successo!")
 
-    # --- Intervallo di confidenza fittizio (±0.6 °C) ---
+    # Simula intervallo di confidenza ±0.6 °C
     df_input['Conf_Lower'] = df_input['Previsione Temperatura Media'] - 0.6
     df_input['Conf_Upper'] = df_input['Previsione Temperatura Media'] + 0.6
 
-    base = alt.Chart(df_input).encode(x=alt.X('Ora', title='Orario'))
+    # Grafico Altair con linea + area di confidenza
+    base = alt.Chart(df_input).encode(x=alt.X('Ora:T', title='Orario'))
 
-    area = base.mark_area(opacity=0.3, color='lightblue').encode(
-        y='Conf_Lower',
-        y2='Conf_Upper'
+    area = base.mark_area(
+        color='lightblue',
+        opacity=0.3
+    ).encode(
+        y=alt.Y('Conf_Lower:Q', title='Temperatura [°C]'),
+        y2='Conf_Upper:Q'
     )
 
-    line = base.mark_line(color='blue').encode(
-        y=alt.Y('Previsione Temperatura Media', title='Temperatura [°C]', scale=alt.Scale(domain=[30, 40])),
+    line = base.mark_line(
+        color='blue'
+    ).encode(
+        y='Previsione Temperatura Media:Q',
         tooltip=['Ora', 'Previsione Temperatura Media']
     )
 
@@ -157,8 +163,7 @@ try:
         height=300
     )
 
-    st.altair_chart(chart, use_container_width=True)
-    
+    st.altair_chart(chart, use_container_width=True)    
 
 except Exception as e:
     st.error(f"Errore durante la previsione: {e}")
