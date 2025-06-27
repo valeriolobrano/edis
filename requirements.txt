@@ -1,0 +1,5 @@
+streamlit
+catboost
+numpy
+pandas
+requests
