@@ -27,7 +27,6 @@ data_domani = datetime.datetime.now(datetime.timezone.utc).date() + datetime.tim
 data_formattata = data_domani.strftime("%d %B %Y")  # Esempio: 27 giugno 2025
 
 # Titolo dinamico con data
-st.title(f"📈 Previsione Temperatura Media – CP 4 Mandamenti per il giorno {data_formattata}")
 st.markdown("Previsione automatica della temperatura media interna per CP 4 Mandamenti usando dati Open-Meteo e modello CatBoost ottimizzato. Indice di correlazione **R² = 0.98**")
 
 # --- Parametri ---
