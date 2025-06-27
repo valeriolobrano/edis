@@ -5,10 +5,19 @@ from catboost import CatBoostRegressor
 import datetime
 import requests
 import altair as alt
-import locale
 
-# Imposta la localizzazione italiana
-locale.setlocale(locale.LC_TIME, 'it_IT.UTF-8')
+mesi_it = {
+    1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
+    5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
+    9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
+}
+
+data_domani = datetime.date.today() + datetime.timedelta(days=1)
+giorno = data_domani.day
+mese = mesi_it[data_domani.month]
+anno = data_domani.year
+
+st.title(f"📈 Previsione Temperatura Media – CP 4 Mandamenti per il giorno {giorno} {mese} {anno}")
 
 # --- Titolo e introduzione ---
 st.set_page_config(layout="wide")
