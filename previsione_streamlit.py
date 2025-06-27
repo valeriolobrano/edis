@@ -133,7 +133,7 @@ try:
     df_input['Previsione Temperatura Media'] = y_pred
     df_input['Ora'] = df_input['hour'].dt.strftime('%H:%M')
 
-     st.success("✅ Previsione completata con successo!")
+    st.success("✅ Previsione completata con successo!")
 
     # --- Intervallo di confidenza fittizio (±0.6 °C) ---
     df_input['Conf_Lower'] = df_input['Previsione Temperatura Media'] - 0.6
