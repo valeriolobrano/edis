@@ -134,36 +134,19 @@ try:
     df_input['Ora'] = df_input['hour'].dt.strftime('%H:%M')
 
     st.success("✅ Previsione completata con successo!")
-
-    # Simula intervallo di confidenza ±0.6 °C
-    df_input['Conf_Lower'] = df_input['Previsione Temperatura Media'] - 0.6
-    df_input['Conf_Upper'] = df_input['Previsione Temperatura Media'] + 0.6
-
-    # Grafico Altair con linea + area di confidenza
-    base = alt.Chart(df_input).encode(x=alt.X('Ora:T', title='Orario'))
-
-    area = base.mark_area(
-        color='lightblue',
-        opacity=0.3
-    ).encode(
-        y=alt.Y('Conf_Lower:Q', title='Temperatura [°C]'),
-        y2='Conf_Upper:Q'
-    )
-
-    line = base.mark_line(
-        color='blue'
-    ).encode(
-        y='Previsione Temperatura Media:Q',
+    # --- GRAFICO ---
+    chart = alt.Chart(df_input).mark_line().encode(
+        x=alt.X('Ora', title='Orario'),
+        y=alt.Y('Previsione Temperatura Media', title='Temperatura [°C]', scale=alt.Scale(domain=[30, 40])),
         tooltip=['Ora', 'Previsione Temperatura Media']
-    )
-
-    chart = (area + line).properties(
+    ).properties(
         title='📈 Previsione Temperatura Media della CP Rossa 4 Mandamenti',
         width=800,
         height=300
     )
 
-    st.altair_chart(chart, use_container_width=True)    
+    st.altair_chart(chart, use_container_width=True)
+    #st.dataframe(df_input[['Ora', 'ghi', 'Tair2m', 'potenza', 'Previsione Temperatura Media']].set_index('Ora'))
 
 except Exception as e:
     st.error(f"Errore durante la previsione: {e}")
