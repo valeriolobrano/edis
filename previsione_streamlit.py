@@ -174,8 +174,8 @@ try:
         ),
         tooltip=['Ora', 'Serie', 'Valore']
     ).properties(
-        title={'text':'📈 Previsione Temperatura Interna vs Temperatura aria Esterna','anchor':'middle'},
-        width=800, height=450
+        title={'text':'📈 Previsione Interna vs Temperatura Esterna','anchor':'middle'},
+        width='container', height=600
     )
     st.altair_chart(chart, use_container_width=True)
 
