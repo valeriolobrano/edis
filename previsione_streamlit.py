@@ -170,7 +170,8 @@ try:
                 domain=['Tair2m', 'Previsione Temperatura Media'],
                 range=['#1f77b4', '#ff7f0e']
             ),
-            legend=alt.Legend(title="Serie")
+            legend=alt.Legend(title="Serie", orient='top', direction='horizontal',
+                              labelFontSize=10, symbolSize=100)
         ),
         tooltip=['Ora', 'Serie', 'Valore']
     ).properties(
