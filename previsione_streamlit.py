@@ -154,8 +154,10 @@ try:
     max_pred = df_input['Previsione Temperatura Media'].max()
     time_max = df_input.loc[df_input['Previsione Temperatura Media'].idxmax(), 'Ora']
     avg_pred = df_input['Previsione Temperatura Media'].mean()
-
-    st.markdown(f"**🔥 Massimo previsto:** **{max_pred:.1f}°C ±3°C** alle **{time_max}**")
+    delta = 3.0  # margine di incertezza
+    min_range = max_pred - delta
+    max_range = max_pred + delta
+    st.markdown(f"**🔥 Massimo previsto:** **tra {min_range:.1f}°C e {max_range:.1f}°C** alle **{time_max}**")
     st.markdown(f"**📊 Media giornaliera:** **{avg_pred:.1f}°C**")
 
     # --- Calcola limiti asse Y ---
