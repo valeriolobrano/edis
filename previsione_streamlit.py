@@ -8,12 +8,14 @@ from catboost import CatBoostRegressor
 import datetime
 import requests
 import altair as alt
+import joblib
+
 
 # --- Configurazione pagina ---
 st.set_page_config(layout="wide")
 # Versione script in alto a destra
 st.markdown(
-    "<span style='float:right;font-size:12px;color:gray;'>Versione 02/07/2025</span>",
+    "<span style='float:right;font-size:12px;color:gray;'>Versione 04/07/2025 XGBoost</span>",
     unsafe_allow_html=True
 )
 
@@ -36,7 +38,7 @@ st.markdown(
 )
 
 # --- Parametri di potenza ---
-col1, col2 = st.columns(2)
+col1, col2, col3  = st.columns(3)
 with col1:
     potenza_minima = st.slider(
         "⚡ Imposta il minimo della potenza prevista (MW)",
@@ -45,7 +47,12 @@ with col1:
 with col2:
     potenza_massima = st.slider(
         "⚡ Imposta il massimo della potenza prevista (MW)",
-        min_value=potenza_minima, max_value=45, value=30
+        min_value=potenza_minima, max_value=45, value=22
+    )
+with col3:
+    temp_media_prev_day = st.slider(
+        "🌡️ Temperatura media del giorno precedente (°C)",
+        min_value=35, max_value=45, value=38, step=1
     )
 
 # --- Coordinate Palermo ---
@@ -69,17 +76,18 @@ def get_openmeteo_forecast():
         "shortwave_radiation": "ghi",
         "temperature_2m": "Tair2m"
     }, inplace=True)
+    df['Tair2m']= df['Tair2m'] +1.5 # aggiungo un delta dovuto al centro città
     return df[['hour', 'ghi', 'Tair2m']]
 
 # --- Caricamento modello CatBoost ---
 @st.cache_resource(show_spinner=False)
 def load_model():
-    model = CatBoostRegressor()
-    model.load_model("CatBoost-ADV.cbm")
+    model = joblib.load("XGBoost.pkl")
+    
     return model
 
 # --- Costruzione delle feature ---
-def costruisci_feature(df_meteo, potenza_min, potenza_max):
+def costruisci_feature(df_meteo, potenza_min, potenza_max, temp_media_prev_day):
     df_input = df_meteo.copy()
     # Lag ghi
     df_input['ghi_lag1'] = df_input['ghi'].shift(1).bfill()
@@ -107,37 +115,37 @@ def costruisci_feature(df_meteo, potenza_min, potenza_max):
     # Andamento potenza pseudosinusoidale
     def andamento_potenza(ore, p_min, p_max):
         secondi = ore.dt.hour * 3600 + ore.dt.minute * 60
-        sec_min = 6 * 3600 + 30 * 60
-        sec_max = 14 * 3600
+        sec_min = 5 * 3600      #5.00
+        sec_max = 17 * 3600     #17.00
+        # Ampiezza e offset della sinusoide
         amp = (p_max - p_min) / 2
         off = p_min + amp
-        norm = (secondi - sec_min) / (sec_max - sec_min) * np.pi
-        norm = np.clip(norm, 0, np.pi)
-        return off + amp * np.sin(norm - np.pi/2)
+        # Normalizza il tempo tra minimo e massimo in un intervallo [-π/2, 3π/2]
+        phase = (secondi - sec_min) / (sec_max - sec_min) * (2 * np.pi) - np.pi/2
+        
+
+        # Calcola la sinusoide
+        potenza = off + amp * np.sin(0.5*phase)
+        return potenza
 
     df_input['potenza'] = andamento_potenza(df_input['hour'], potenza_min, potenza_max)
     df_input['potenza_lag1'] = df_input['potenza'].shift(1).bfill()
     df_input['potenza_lag2'] = df_input['potenza'].shift(2).bfill()
+    df_input['temp_media_prev_day'] = temp_media_prev_day
 
     return df_input
 
 # --- Main ---
 try:
     df_meteo = get_openmeteo_forecast()
-    df_input = costruisci_feature(df_meteo, potenza_minima, potenza_massima)
+    df_input = costruisci_feature(df_meteo, potenza_minima, potenza_massima, temp_media_prev_day)
 
     # Previsione
-    feature_cols = [
-        'ghi', 'ghi_lag1', 'ghi_lag2', 'Tair2m', 'potenza',
-        'potenza_lag1', 'potenza_lag2',
-        'sin_hour', 'cos_hour', 'sin_month', 'cos_month',
-        'is_weekend',
-        'day_of_week_Monday', 'day_of_week_Tuesday', 'day_of_week_Wednesday',
-        'day_of_week_Thursday', 'day_of_week_Saturday', 'day_of_week_Sunday'
-    ]
+    with open("XGBoost_features.txt", "r") as f:
+        feature_cols = f.read().splitlines()
     model = load_model()
     y_pred = model.predict(df_input[feature_cols])
-    df_input['Previsione Temperatura Media'] = y_pred
+    df_input['Previsione Temperatura Media'] = y_pred + 1.5  #aggiungo un delta di sicurezza
     df_input['Ora'] = df_input['hour'].dt.strftime('%H:%M')
 
     st.success("✅ Previsione completata con successo!")
@@ -147,7 +155,7 @@ try:
     time_max = df_input.loc[df_input['Previsione Temperatura Media'].idxmax(), 'Ora']
     avg_pred = df_input['Previsione Temperatura Media'].mean()
 
-    st.markdown(f"**🔥 Massimo previsto:** **{max_pred:.1f}°C ±1°C** alle **{time_max}**")
+    st.markdown(f"**🔥 Massimo previsto:** **{max_pred:.1f}°C ±3°C** alle **{time_max}**")
     st.markdown(f"**📊 Media giornaliera:** **{avg_pred:.1f}°C**")
 
     # --- Calcola limiti asse Y ---
@@ -158,27 +166,40 @@ try:
     y_max = max_val + margin
 
     # --- Grafico multi-serie ---
-    df_plot = df_input[['Ora', 'Tair2m', 'Previsione Temperatura Media']]
-    df_plot = df_plot.melt(id_vars='Ora', var_name='Serie', value_name='Valore')
-    chart = alt.Chart(df_plot).mark_line().encode(
+    # 1. Temperature chart (asse sinistro)
+    df_temp = df_input[['Ora', 'Tair2m', 'Previsione Temperatura Media']].melt(
+        id_vars='Ora', var_name='Serie', value_name='Valore'
+    )
+    chart_temp = alt.Chart(df_temp).mark_line().encode(
         x=alt.X('Ora:N', title='Orario'),
-        y=alt.Y('Valore:Q', title='Temperatura [°C]',
-                scale=alt.Scale(domain=[y_min, y_max])),
-        color=alt.Color(
-            'Serie:N',
-            scale=alt.Scale(
-                domain=['Tair2m', 'Previsione Temperatura Media'],
-                range=['#1f77b4', '#ff7f0e']
-            ),
-            legend=alt.Legend(title="Serie", orient='top', direction='horizontal',
-                              labelFontSize=10, symbolSize=100)
-        ),
+        y=alt.Y('Valore:Q', title='Temperatura [°C]', scale=alt.Scale(domain=[y_min, y_max])),
+        color=alt.Color('Serie:N', scale=alt.Scale(
+            domain=['Tair2m', 'Previsione Temperatura Media'],
+            range=['#1f77b4', '#ff7f0e']
+        )),
         tooltip=['Ora', 'Serie', 'Valore']
+    )
+
+    # 2. Potenza chart (asse destro, normalizzato da 0 a 1)
+    df_pot = df_input[['Ora', 'potenza']].copy()
+    df_pot['Serie'] = 'Potenza'
+    df_pot.rename(columns={'potenza': 'Valore'}, inplace=True)
+    chart_pot = alt.Chart(df_pot).mark_line(strokeDash=[4, 4], color='purple').encode(
+    x='Ora:N',
+    y=alt.Y('Valore:Q', title='Potenza [MW]', scale=alt.Scale(domain=[df_input['potenza'].min(), df_input['potenza'].max()]), axis=alt.Axis(titleColor='purple')),
+    tooltip=['Ora', 'Valore']
+    )
+
+    # 3. Layer + doppia scala
+    # 3. Layer + doppia scala
+    final_chart = alt.layer(chart_temp, chart_pot).resolve_scale(
+        y='independent'
     ).properties(
-        title={'text':'📈 Previsione Interna vs Temperatura Esterna','anchor':'middle'},
+        title={'text': '📈 Temperatura & Potenza – Confronto Giornaliero', 'anchor': 'middle'},
         width='container', height=600
     )
-    st.altair_chart(chart, use_container_width=True)
+
+    st.altair_chart(final_chart, use_container_width=True)
 
 except Exception as e:
     st.error(f"Errore durante la previsione: {e}")
