@@ -1,5 +1,5 @@
 '''
-versione 02/07/2025
+versione 04/07/2025
 '''
 import streamlit as st
 import pandas as pd
