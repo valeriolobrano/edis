@@ -196,11 +196,16 @@ try:
     # 3. Layer + doppia scala
     final_chart = alt.layer(chart_temp, chart_pot).resolve_scale(
         y='independent'
+    ).configure_legend(
+        orient='top',
+        direction='horizontal',
+        title=None,
+        labelFontSize=12,
+        symbolSize=100
     ).properties(
-        title={'text': '📈 Temperatura & Potenza – Confronto Giornaliero', 'anchor': 'middle'},
-        width='container', height=600
+        title={'text': '📈 Temperatura & Potenza – Confronto Giornaliero', 'anchor': 'start'},
+        width='container', height=500
     )
-
     st.altair_chart(final_chart, use_container_width=True)
 
 except Exception as e:
